@@ -1,0 +1,86 @@
+import streamlit as st
+import pandas as pd
+import requests
+
+# Page Configuration
+st.set_page_config(page_title='Cryptocurrency Dashboard', layout='wide')
+st.title('📊 Cryptocurrency Dashboard')
+
+# Sidebar Navigation
+section = st.sidebar.radio('Navigate:', ['Home', 'Market Data', 'Charts', 'Map', 'Feedback'])
+
+# API Setup
+API_URL = 'https://api.coingecko.com/api/v3/coins/markets'
+params = {
+    'vs_currency': 'usd',
+    'order': 'market_cap_desc',
+    'per_page': 10,
+    'page': 1,
+    'sparkline': False
+}
+
+@st.cache_data
+def fetch_crypto_data():
+    try:
+        response = requests.get(API_URL, params=params)
+        if response.status_code == 200:
+            return pd.DataFrame(response.json())
+        else:
+            st.error('Failed to fetch data from API.')
+            return pd.DataFrame()
+    except Exception:
+        st.warning('API request failed. Showing sample data.')
+        return pd.DataFrame({
+            'name': ['Bitcoin', 'Ethereum', 'Cardano'],
+            'symbol': ['BTC', 'ETH', 'ADA'],
+            'current_price': [50000, 4000, 2],
+            'market_cap': [900e9, 450e9, 70e9],
+            'price_change_percentage_24h': [1.2, -0.5, 2.3]
+        })
+
+crypto_df = fetch_crypto_data()
+
+# Sections
+if section == 'Home':
+    st.header('Welcome!')
+    st.write('This dashboard provides real-time cryptocurrency data, charts, and interactive features.')
+    st.success('Navigate using the sidebar.')
+
+elif section == 'Market Data':
+    st.header('Top Cryptocurrencies')
+    st.dataframe(crypto_df)
+
+elif section == 'Charts':
+    st.header('Charts')
+    if not crypto_df.empty:
+        st.subheader('Line Chart: Current Prices')
+        st.line_chart(crypto_df.set_index('name')['current_price'])
+
+        st.subheader('Bar Chart: Market Cap')
+        st.bar_chart(crypto_df.set_index('name')['market_cap'])
+
+        cap_filter = st.slider('Filter by Market Cap (in billions)', 0, int(crypto_df['market_cap'].max()/1e9), 10)
+        st.write('Filtered Data:')
+        st.dataframe(crypto_df[crypto_df['market_cap'] >= cap_filter * 1e9])
+    else:
+        st.error('Unable to display charts.')
+
+elif section == 'Map':
+    st.header('Sample Map')
+    map_data = pd.DataFrame({
+        'lat': [37.7749, 40.7128, 51.5074],
+        'lon': [-122.4194, -74.0060, -0.1278]
+    })
+    st.map(map_data)
+
+elif section == 'Feedback':
+    st.header('Feedback')
+    name = st.text_input('Your Name')
+    experience = st.radio('Experience:', ['Excellent', 'Good', 'Average', 'Poor'])
+    suggestions = st.text_area('Suggestions')
+    agree = st.checkbox('I agree to submit feedback')
+    if st.button('Submit'):
+        if agree:
+            st.success('Thank you for your feedback!')
+        else:
+            st.warning('Please agree before submitting.')
